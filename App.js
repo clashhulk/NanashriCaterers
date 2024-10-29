@@ -7,6 +7,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { enableScreens } from 'react-native-screens';
+import { WebView } from 'react-native-webview';
 
 enableScreens();
 const Stack = createNativeStackNavigator();
@@ -42,16 +43,13 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const CaterersForm = ({ route }) => {
-  const { formTitle, pdfTitle } = route.params;
+  const { formTitle, pdfTitle } = route?.params || {};
   const [form, setForm] = useState({
     name: "",
     address: "",
     mobileNumber: "+91",
     date: new Date(),
     menuItems: [{ itemName: "" }],
-    quantityOfTable: "",
-    quantityOfChair: "",
-    quantityOfPeople: "",
     totalAmount: "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -61,39 +59,41 @@ const CaterersForm = ({ route }) => {
   const addMenuItem = () =>
     setForm({ ...form, menuItems: [...form.menuItems, { itemName: "" }] });
 
-  const generatePDF = async () => {
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px }
-            h1 { text-align: center; color: #ED070A; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid black; padding: 10px; text-align: left; }
-          </style>
-        </head>
-        <body>
-          <h1>${pdfTitle}</h1>
-          <p><strong>Name:</strong> ${form.name}</p>
-          <p><strong>Address:</strong> ${form.address}</p>
-          <p><strong>Mobile Number:</strong> ${form.mobileNumber}</p>
-          <p><strong>Date:</strong> ${form.date.toLocaleDateString()}</p>
-          <h2>Menu Items</h2>
-          <table>
-            <tr><th>Item</th><th>Quantity</th></tr>
-            ${form.menuItems
-              .map(
-                (item, index) =>
-                  `<tr><td>${index + 1}</td><td>${item.itemName}</td></tr>`
-              )
-              .join("")}
-          </table>
-          <p><strong>Total Amount:</strong> ${form.totalAmount}</p>
-        </body>
-      </html>`;
+  const generateHTMLContent = () => `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px }
+          h1 { text-align: center; color: #ED070A; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid black; padding: 10px; text-align: left; }
+        </style>
+      </head>
+      <body>
+        <h1>${pdfTitle}</h1>
+        <p><strong>Name:</strong> ${form.name}</p>
+        <p><strong>Address:</strong> ${form.address}</p>
+        <p><strong>Mobile Number:</strong> ${form.mobileNumber}</p>
+        <p><strong>Date:</strong> ${form.date.toLocaleDateString()}</p>
+        <h2>Menu Items</h2>
+        <table>
+          <tr><th>Item</th></tr>
+          ${form.menuItems
+            .map(
+              (item, index) =>
+                `<tr><td>${index + 1}. ${item.itemName}</td></tr>`
+            )
+            .join("")}
+        </table>
+        <p><strong>Total Amount:</strong> ${form.totalAmount}</p>
+      </body>
+    </html>`;
 
+  const generatePDF = async () => {
     try {
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      const { uri } = await Print.printToFileAsync({
+        html: generateHTMLContent(),
+      });
       const pdfFileUri = `${FileSystem.documentDirectory}GeneratedDocument.pdf`;
       await FileSystem.moveAsync({ from: uri, to: pdfFileUri });
       await Sharing.shareAsync(pdfFileUri);
@@ -176,6 +176,15 @@ const CaterersForm = ({ route }) => {
         value={form.totalAmount}
         onChangeText={(text) => handleInputChange("totalAmount", text)}
       />
+
+      <Text style={styles.sectionHeader}>PDF Preview</Text>
+      <View style={styles.webViewContainer}>
+        <WebView
+          source={{ html: generateHTMLContent() }}
+          style={styles.webView}
+        />
+      </View>
+
       <TouchableOpacity style={styles.button} onPress={generatePDF}>
         <Text style={styles.buttonText}>Generate PDF</Text>
       </TouchableOpacity>
@@ -236,6 +245,13 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontSize: 16,
+  },
+  webViewContainer: {
+    height: 400,
+    marginTop: 15,
+  },
+  webView: {
+    flex: 1,
   },
 });
 
